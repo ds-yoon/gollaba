@@ -1,0 +1,479 @@
+<?php 
+$helper = Mage::helper('marketplace');
+$marketplacelabel1  =	$helper->getMarketplacelabel1(); 
+$marketplacelabel2  =	$helper->getMarketplacelabel2(); 
+$marketplacelabel3  =	$helper->getMarketplacelabel3(); 
+$marketplacelabel4  =	$helper->getMarketplacelabel4(); 
+$banner_display 	= 	$helper->getDisplayBanner();
+$banner_image 		= 	$helper->getBannerImage();
+$banner_content 	= 	$helper->getBannerContent();
+$icons_display 		= 	$helper->getDisplayIcon();
+$icon_image1 		= 	$helper->getIconImage1();
+$icon_image1_label 	= 	$helper->getIconImageLabel1();
+$icon_image2 		= 	$helper->getIconImage2();
+$icon_image2_label 	= 	$helper->getIconImageLabel2();
+$icon_image3 		= 	$helper->getIconImage3();
+$icon_image3_label 	= 	$helper->getIconImageLabel3();
+$icon_image4 		= 	$helper->getIconImage4();
+$icon_image4_label 	= 	$helper->getIconImageLabel4();
+$marketplacebutton 	= 	$helper->getMarketplacebutton();
+$marketplaceprofile = 	$helper->getMarketplaceprofile();
+
+/*order collection*/
+
+$sellers_order = Mage::getModel('marketplace/order')->getCollection()
+                ->addFieldToFilter('invoice_id',array('neq'=>0))
+                ->addFieldToSelect('seller_id');
+$prefix = Mage::getConfig()->getTablePrefix();
+$sellers_order->getSelect()
+        ->join(array("ccp" => $prefix."marketplace_userdata"),"ccp.mageuserid = main_table.seller_id",array("wantpartner" => "wantpartner"))
+        ->where("ccp.wantpartner = 1");
+$sellers_order ->getSelect()
+                ->columns('COUNT(*) as countOrder')
+                ->group('seller_id'); 
+$seller_arr = array();
+foreach ($sellers_order as $value) {
+	if($helper->getSellerProCount($value['seller_id'])){
+		$seller_arr[$value['seller_id']] = array();
+		$seller_products = Mage::getModel('marketplace/saleslist')->getCollection()
+		                ->addFieldToFilter('mageproownerid',array('eq'=>$value['seller_id']))
+		                ->addFieldToFilter('cpprostatus',array('eq'=>1))
+		                ->addFieldToSelect('mageproid')
+		                ->addFieldToSelect('magequantity');
+		$seller_products ->getSelect()
+		                ->columns('SUM(magequantity) as countOrderedProduct')
+		                ->group('mageproid');
+		$seller_products->getSelect()
+        			->join(array("ccp" => $prefix."marketplace_product"),"ccp.mageproductid = main_table.mageproid",array("status" => "status"))->where("ccp.status = 1");
+		$seller_products->setOrder('countOrderedProduct', 'DESC')->setPageSize(3);
+		foreach ($seller_products as $seller_product) {
+			array_push($seller_arr[$value['seller_id']], $seller_product['mageproid']);
+		}
+	}
+}	
+if(count($seller_arr)!=4){
+	$i = count($seller_arr);
+	$count_pro_arr = array();
+	$seller_product_coll = Mage::getModel('marketplace/product')->getCollection()
+								->addFieldToFilter('status',array('eq'=>1));
+	$seller_product_coll->getSelect()
+				        ->join(array("ccp" => $prefix."marketplace_userdata"),"ccp.mageuserid = main_table.userid",array("wantpartner" => "wantpartner"))
+				        ->where("ccp.wantpartner = 1");
+	$seller_product_coll->getSelect()
+				        ->columns('COUNT(*) as countOrder')
+				        ->group('userid'); 
+	foreach ($seller_product_coll as $value) {
+		if(!isset($count_pro_arr[$value['userid']])){
+			$count_pro_arr[$value['userid']] = array();
+		}
+		$count_pro_arr[$value['userid']] = $value['countOrder'];
+	}	
+
+	arsort($count_pro_arr);
+
+
+	foreach ($count_pro_arr as $procount_seller_id=>$procount) {		
+		if($i<=4){
+			if($helper->getSellerProCount($procount_seller_id)){
+				if(!isset($seller_arr[$procount_seller_id])){
+					$seller_arr[$procount_seller_id] = array();
+				}
+				$seller_product_coll = Mage::getModel('marketplace/product')->getCollection()
+										->addFieldToFilter('userid',array('eq'=>$procount_seller_id))
+										->addFieldToFilter('status',array('eq'=>1))
+										->setPageSize(3);
+				foreach ($seller_product_coll as $value) {
+					array_push($seller_arr[$procount_seller_id],$value['mageproductid']);
+				}
+			}	
+		}
+		$i++;
+	}
+} 
+?>
+<?php
+$current_store = Mage::app()->getStore();
+if(Mage::getStoreConfig('design/package/name',$current_store) == 'default'){ ?>
+	<style type="text/css">
+		.wk_mp_landing_sellers_wraper{
+		    width: 212px!important;
+		}
+		.wk_mp_landing_sellers_img1 img{
+		    width: 94px!important;
+		}
+		.wk_mp_landing_sellers_img2{
+		    width: 94px!important;
+		}
+	</style>
+<?php 
+} ?>
+<style type="text/css">
+	.wk_mp_banner{
+		background-image: url('<?php echo $banner_image ?>');
+	}	
+</style>
+
+
+<!-- Banner Code -->
+
+<div class="wk_mp_design wk_mp_landingpage">
+	<?php
+	if($banner_display){?>
+		<div class="wk_mp_banner_container">	
+			<div class="wk_mp_banner">
+				<div class="wk_mp_header">
+					<h2><?php echo Mage::helper('cms')->getBlockTemplateProcessor()->filter($banner_content);?></h2>
+					<p>
+						<a href="<?php echo $this->getUrl('customer/account/create/'); ?>">
+							<button class="button wk_mp_landing_button">
+								<span>
+									<span>
+										<strong><?php echo $marketplacebutton; ?></strong>
+									</span>
+								</span>
+							</button>
+						</a>
+					</p>
+				</div>
+			</div>
+		</div>
+	<?php 
+	} ?>
+	<h1 class="wk_marketplace_label"><?php echo $marketplacelabel1 ?></h1>
+	<?php
+	if($icons_display){?>
+		<div class="wk_mp_icon_container">
+			<div class="wk_mp_icon_wraper">
+				<div class="wk_mp_icon">
+					<a href ="<?php echo $this->getUrl('all/'); ?>">
+					<span> <img src ="<?php echo $icon_image1 ?>">
+					</span> 
+					</a>
+				</div>
+			</div>
+			
+			<div class="wk_mp_icon_wraper">
+				<div class="wk_mp_icon">
+						<?php
+					 	if(!Mage::getSingleton('customer/session')->isLoggedIn()){?>
+							<a href ="<?php echo $this->getUrl('customer/account/login/'); ?>">
+							<span> <img src ="<?php echo $icon_image4 ?>">
+							</span> 
+							</a>
+							<?php
+						}?>
+						<?php
+					 	if(Mage::getSingleton('customer/session')->isLoggedIn()){?>
+							<a href ="<?php echo $this->getUrl('marketplace/marketplaceaccount/new/'); ?>">
+							<span> <img src ="<?php echo $icon_image4 ?>">
+							</span> 
+							</a>
+							<?php
+						}?>	
+				</div>
+			</div>
+		</div>
+	<?php
+	} ?>
+
+	<h1 class="wk_marketplace_label"><?php echo $marketplacelabel2 ?></h1>
+
+
+<!-- Featured Item Selecting Code -->
+
+
+<div id="home-featured">
+	<div class="page-title featured-title">
+	<div align=center>
+	
+        <h3><b><font size = "5">
+        <?php echo $this->__('Featured products') ?>
+        </font> </b> </h3>
+    
+    </div>
+    </div>
+ 
+	<?php
+		// some helpers
+		$_helper = $this->helper('catalog/output');
+		$storeId = Mage::app()->getStore()->getId();
+		$catalog = $this->getLayout()->createBlock('catalog/product_list')->setStoreId($storeId);
+ 
+		// get all products that are marked as featured
+		$collection = Mage::getModel('catalog/product')->getCollection();
+		$collection->addAttributeToSelect('featured');
+		$collection->addFieldToFilter(array(
+		array('attribute' => 'featured', 'eq' => true),
+		));
+ 
+		// if no products are currently featured, display some text
+		if (!$collection->count()) :
+	?>
+ 
+	<p class="note-msg"><?php echo $this->__('There are no featured products at this moment.') ?></p>
+ 
+	<?php else : ?>
+ 
+	<div class="category-products">
+ 
+	<?php
+		$_collectionSize = $collection->count();
+		$_columnCount = 5;
+		$i = 0;
+ 
+		foreach ($collection as $_product) :
+			$_product = Mage::getModel('catalog/product')->setStoreId($storeId)->load($_product->getId());
+ 
+	?>
+ 
+	    <?php if ($i++%$_columnCount==0): ?>
+	    <ul class="products-grid">
+	    <?php endif ?>
+	        <li class="item<?php if(($i-1)%$_columnCount==0): ?> first<?php elseif($i%$_columnCount==0): ?> last<?php endif; ?>">
+	            <a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true) ?>" class="product-image"><img src="<?php echo $this->helper('catalog/image')->init($_product, 'small_image') ->keepAspectRatio(false)
+	            	->resize(405); ?>" width="405" height="405" alt="<?php echo $this->stripTags($this->getImageLabel($_product, 'small_image'), null, true) ?>" /></a>
+	            <h2 class="product-name"><a href="<?php echo $_product->getProductUrl() ?>" title="<?php echo $this->stripTags($_product->getName(), null, true) ?>"><?php echo $_helper->productAttribute($_product, $_product->getName(), 'name') ?></a></h2>
+	            <?php if($_product->getRatingSummary()): ?>
+	            <?php echo $this->getReviewsSummaryHtml($_product, 'short') ?>
+	            <?php endif; ?>
+	            <?php echo $this->getPriceHtml($_product, true) ?>
+	            <div class="actions">
+	                <?php if($_product->isSaleable()): ?>
+	                  <!--
+	                    <button type="button" title="<?php echo $this->__('Add to Cart') ?>" class="button btn-cart" onclick="setLocation('<?php echo $catalog->getAddToCartUrl($_product) ?>')"><span><span><?php echo $this->__('Add to Cart') ?></span></span></button>
+	                   -->
+	                <?php else: ?>
+	                    <p class="availability out-of-stock"><span><?php echo $this->__('Out of stock') ?></span></p>
+	                <?php endif; ?>
+	                <ul class="add-to-links">
+	                    <?php if ($this->helper('wishlist')->isAllow()) : ?>
+	                        <!-- <li><a href="<?php echo $this->helper('wishlist')->getAddUrl($_product) ?>" class="link-wishlist"><?php echo $this->__('Add to Wishlist') ?></a></li> -->
+	                    <?php endif; ?>
+	                    <?php if($_compareUrl=$catalog->getAddToCompareUrl($_product)): ?>
+	                        <!-- <li><span class="separator">|</span> <a href="<?php echo $_compareUrl ?>" class="link-compare"><?php echo $this->__('Add to Compare') ?></a></li> -->
+	                    <?php endif; ?>
+	                </ul>
+	            </div>
+	        </li>
+	    <?php if ($i%$_columnCount==0 || $i==$_collectionSize): ?>
+	    </ul>
+	    <?php endif ?>
+ 
+		<?php endforeach ?>
+        <script type="text/javascript">decorateGeneric($$('ul.products-grid'), ['odd','even','first','last'])</script>
+	</div>
+	<?php endif ?>
+</div>
+
+
+<!-- Featured Seller Code -->
+
+<div class="wk_mp_landing_sellers_container">
+<div class="page-title featuredseller-title">
+	<div align=center>
+	
+        <h3><b><font size = "5">
+        <?php echo $this->__('Top Sellers') ?>
+        </font> </b> </h3>
+    
+    </div>
+    </div>
+
+	<div class="wk_mp_landing_sellers_container">
+		<?php
+		$i = 0;
+		$count = count($seller_arr);
+		foreach ($seller_arr as $seller_id => $products) {
+			$i++;
+			$seller = Mage::getModel('customer/customer')->load($seller_id);
+			$seller_product_count = 0;
+			$profileurl = 0;
+			$shoptitle = '';
+			$logo="noimage.png";
+			
+			$seller_product_count = $helper->getSellerProCount($seller_id);
+
+			$seller_data = Mage::getModel('marketplace/userprofile')->getCollection()->addFieldToFilter('mageuserid',array('eq'=>$seller_id));
+			foreach ($seller_data as $seller_data_result) {
+			    $profileurl = $seller_data_result->getProfileurl();
+			    $shoptitle = $seller_data_result->getShoptitle();
+			    $logo=$seller_data_result->getlogopic()==''?"noimage.png":$seller_data_result->getlogopic();
+			}
+			if(!$shoptitle){
+				$shoptitle = $seller->getName();
+			}
+			$logo=Mage::getBaseUrl(Mage_Core_Model_Store::URL_TYPE_MEDIA).'avatar/'.$logo;
+			if(!isset($products[0])){
+				$products[0] = 0;
+				$seller_product_row = Mage::getModel('marketplace/product')->getCollection()
+				                ->addFieldToFilter('userid',array('eq'=>$seller_id))
+				                ->addFieldToFilter('status',array('eq'=>1));
+				if(isset($products[1]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[1]));
+	            if(isset($products[2]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[2]));
+	            if(isset($products[3]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[3]));
+				$seller_product_row->getSelect()
+				                ->columns('COUNT(*) as countproducts')
+				                ->group('userid'); 
+				foreach ($seller_product_row as $seller_product_row_data) {
+					$products[0] = $seller_product_row_data['mageproductid'];
+				}
+			}
+			if(!isset($products[1])){
+				$products[1] = 0;
+				$seller_product_row = Mage::getModel('marketplace/product')->getCollection()
+				                ->addFieldToFilter('userid',array('eq'=>$seller_id))
+				                ->addFieldToFilter('status',array('eq'=>1));
+				if(isset($products[0]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[0]));
+	            if(isset($products[2]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[2]));
+	            if(isset($products[3]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[3]));
+
+				$seller_product_row->getSelect()
+				                ->columns('COUNT(*) as countproducts')
+				                ->group('userid'); 
+				foreach ($seller_product_row as $seller_product_row_data) {
+					$products[1] = $seller_product_row_data['mageproductid'];
+				}
+			}
+			if(!isset($products[2])){
+				$products[2] = 0;
+				$seller_product_row = Mage::getModel('marketplace/product')->getCollection()
+				                ->addFieldToFilter('userid',array('eq'=>$seller_id))
+				                ->addFieldToFilter('status',array('eq'=>1));
+				if(isset($products[1]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[1]));
+	            if(isset($products[0]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[0]));
+	            if(isset($products[3]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[3]));
+				$seller_product_row->getSelect()
+				                ->columns('COUNT(*) as countproducts')
+				                ->group('userid'); 
+				foreach ($seller_product_row as $seller_product_row_data) {
+					$products[2] = $seller_product_row_data['mageproductid'];
+				}
+			}
+			if(!isset($products[3])){
+				$products[3] = 0;
+				$seller_product_row = Mage::getModel('marketplace/product')->getCollection()
+				                ->addFieldToFilter('userid',array('eq'=>$seller_id))
+				                ->addFieldToFilter('status',array('eq'=>1));
+				if(isset($products[1]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[1]));
+	            if(isset($products[0]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[0]));
+	            if(isset($products[2]))                
+	                $seller_product_row->addFieldToFilter('mageproductid',array('neq'=>$products[2]));
+				$seller_product_row->getSelect()
+				                ->columns('COUNT(*) as countproducts')
+				                ->group('userid'); 
+				foreach ($seller_product_row as $seller_product_row_data) {
+					$products[3] = $seller_product_row_data['mageproductid'];
+				}
+			}
+			$product_1 = Mage::getModel('catalog/product')->load($products[0]);
+			$product_2 = Mage::getModel('catalog/product')->load($products[1]);
+			$product_3 = Mage::getModel('catalog/product')->load($products[2]);
+			$product_4 = Mage::getModel('catalog/product')->load($products[3]);
+			?>
+			<div class="wk_mp_landing_sellers_wraper <?php if($count == $i){ echo "wk_last_seller"; }?>">
+				<div class="wk_mp_landing_sellers">
+					<div class="wk_mp_landing_sellers_img1">
+						<a href="<?php echo $product_1->getProductUrl()?>" title="<?php echo $product_1->getName(); ?>">							
+							<img src=<?php echo Mage::helper('catalog/image')
+							->init($product_1, 'thumbnail')
+							->constrainOnly(true)
+							->keepAspectRatio(false)
+							->keepFrame(true)
+							->resize(130,130);?> />
+						</a>
+						<a href="<?php echo $product_2->getProductUrl()?>" title="<?php echo $product_2->getName(); ?>">
+							<img src=<?php echo Mage::helper('catalog/image')
+							->init($product_2, 'thumbnail')
+							->constrainOnly(true)
+							->keepAspectratio(false)
+							->keepFrame(true)
+							->resize(130,130);?> />
+						</a>
+					</div>
+					<div class="wk_mp_landing_sellers_img2">
+						<a href="<?php echo $product_3->getProductUrl()?>" title="<?php echo $product_3->getName(); ?>">
+							<img src=<?php echo Mage::helper('catalog/image')
+							->init($product_3, 'thumbnail')
+							->constrainOnly(true)
+							->keepAspectRatio(false)
+							->keepFrame(true)
+							->resize(130,130);?> />
+						</a>
+						<a href="<?php echo $product_4->getProductUrl()?>" title="<?php echo $product_4->getName(); ?>">
+							<img src=<?php echo Mage::helper('catalog/image')
+							->init($product_4, 'thumbnail')
+							->constrainOnly(true)
+							->keepAspectRatio(false)
+							->keepFrame(true)
+							->resize(130,130);?> />
+						</a>
+					</div>
+					<div class="wk_mp_landing_sellers_logo">
+						<a href="<?php echo $helper->getRewriteUrl('marketplace/seller/profile/'.$profileurl);?>" title="<?php echo $helper->__("View Seller's Shop") ?>">
+
+						<img src="<?php echo $logo ?>">
+						</a>
+
+						
+					</div>					
+					<div class="wk_mp_landing_sellers_details">
+						<div>
+							<a href="<?php echo $helper->getRewriteUrl('marketplace/seller/profile/'.$profileurl);?>" title="<?php echo $helper->__("View Seller's Shop") ?>">
+								<strong><?php echo $shoptitle ?></strong>
+							</a>
+						</div>
+						<div><?php echo $helper->__('%s Products',$seller_product_count) ?></div>
+						<a href="<?php echo $helper->getRewriteUrl('marketplace/seller/collection/'.$profileurl);?>">
+							<button class="button" title="<?php echo $helper->__("View Seller's Collection") ?>">
+								<span>
+									<span>
+										<?php echo $helper->__('View All'); ?>
+									</span>
+								</span>
+							</button>
+						</a>
+					</div>
+				</div>
+			</div>
+		<?php 
+		} ?>
+	</div>
+
+	<div class="wk_mp_label3_container">
+		<div class="wk_mp_label3">
+			<h3 class="wk_marketplace_label_about"><?php echo $marketplacelabel3 ?></h3>
+
+			<a href="<?php echo $this->getUrl('marketplace/seller/list/'); ?>">
+				<button class="button wk_mp_landing_button">
+					<span>
+						<span>
+							<?php echo $helper->__('View All Sellers'); ?>
+						</span>
+					</span>
+				</button>
+			</a>
+		</div>
+	</div>
+
+
+
+	<h1 class="wk_marketplace_label"><?php echo $marketplacelabel4 ?></h1>
+
+	<div class="wk_mp_landing_about">
+		<?php echo Mage::helper('cms')->getBlockTemplateProcessor()->filter($marketplaceprofile);?>
+	</div>
+
+</div>
+
+
